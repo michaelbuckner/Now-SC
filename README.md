@@ -39,6 +39,11 @@ Or with options:
 now-sc init --name my-project --customer "Acme Corp"
 ```
 
+Skip GitHub repository creation:
+```bash
+now-sc init --no-github
+```
+
 ### Execute Prompts
 Navigate to your project directory and run:
 ```bash
@@ -52,6 +57,7 @@ now-sc prompt
 - **Prompt Templates**: Automatically fetches and includes base prompts from GitHub
 - **LLM Integration**: Execute prompts using OpenRouter API with Gemini 2.5
 - **Output Management**: Save LLM responses to appropriate project folders
+- **GitHub Integration**: Automatically creates private GitHub repositories for each project
 
 ## Directory Structure
 
@@ -75,19 +81,31 @@ project-name/
 
 ## Configuration
 
-### OpenRouter API Key
-Set your OpenRouter API key as an environment variable:
+### Environment Variables
 
+#### OpenRouter API Key (Required for prompt execution)
 ```bash
 export OPENROUTER_API_KEY=your_api_key_here
 ```
 
-Or create a `.env` file in your project directory:
-```
-OPENROUTER_API_KEY=your_api_key_here
+Get your API key from [OpenRouter](https://openrouter.ai/).
+
+#### GitHub Personal Access Token (Optional for automatic repo creation)
+```bash
+export GITHUB_PAT=your_github_token_here
 ```
 
-Get your API key from [OpenRouter](https://openrouter.ai/).
+To create a GitHub PAT:
+1. Go to GitHub Settings > Developer settings > Personal access tokens
+2. Generate a new token with `repo` scope
+3. Copy and set as environment variable
+
+### Using .env File
+You can also create a `.env` file in your project directory:
+```
+OPENROUTER_API_KEY=your_api_key_here
+GITHUB_PAT=your_github_token_here
+```
 
 ## Prompt Templates
 

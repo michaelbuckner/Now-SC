@@ -13,6 +13,7 @@ const program = new Command();
 
 // GitHub API configuration
 const GITHUB_BASE_URL = 'https://api.github.com/repos/michaelbuckner/Now-SC-Base-Prompts/contents/Prompts';
+const GITHUB_API_URL = 'https://api.github.com';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'google/gemini-2.0-flash-exp:free';
 
@@ -130,6 +131,93 @@ async function executePrompt(promptContent, userInput = '') {
   }
 }
 
+// Create GitHub repository
+async function createGitHubRepo(repoName, description) {
+  const token = process.env.GITHUB_PAT;
+  
+  if (!token) {
+    throw new Error('GITHUB_PAT environment variable is not set');
+  }
+  
+  try {
+    const response = await axios.post(
+      `${GITHUB_API_URL}/user/repos`,
+      {
+        name: repoName,
+        description: description,
+        private: true,
+        auto_init: false
+      },
+      {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.status === 422) {
+      throw new Error(`Repository "${repoName}" already exists on GitHub`);
+    }
+    throw new Error(`Failed to create GitHub repository: ${error.message}`);
+  }
+}
+
+// Get GitHub username
+async function getGitHubUsername() {
+  const token = process.env.GITHUB_PAT;
+  
+  if (!token) {
+    return null;
+  }
+  
+  try {
+    const response = await axios.get(`${GITHUB_API_URL}/user`, {
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    
+    return response.data.login;
+  } catch (error) {
+    return null;
+  }
+}
+
+// Initialize git repository and push to GitHub
+async function initializeGitRepo(projectPath, repoUrl) {
+  const { exec } = require('child_process');
+  const util = require('util');
+  const execPromise = util.promisify(exec);
+  
+  const commands = [
+    'git init',
+    'git add .',
+    'git commit -m "Initial commit: Project structure created by Now-SC"',
+    `git remote add origin ${repoUrl}`,
+    'git branch -M main',
+    'git push -u origin main'
+  ];
+  
+  for (const cmd of commands) {
+    try {
+      await execPromise(cmd, { cwd: projectPath });
+    } catch (error) {
+      // If push fails, it might be due to authentication, but repo is still created
+      if (cmd.includes('push') && error.message.includes('Authentication failed')) {
+        console.log(chalk.yellow('\nNote: Repository created but push failed due to authentication.'));
+        console.log(chalk.yellow('You may need to set up Git credentials or push manually.'));
+        return;
+      }
+      throw error;
+    }
+  }
+}
+
 // Initialize command
 program
   .name('now-sc')
@@ -142,6 +230,7 @@ program
   .description('Initialize a new presales project')
   .option('-n, --name <name>', 'Project name')
   .option('-c, --customer <customer>', 'Customer name')
+  .option('--no-github', 'Skip GitHub repository creation')
   .action(async (options) => {
     try {
       let projectName = options.name;
@@ -254,7 +343,47 @@ OPENROUTER_API_KEY=your_api_key_here
       
       await fs.writeFile(path.join(projectPath, '.env.example'), envExample);
       
+      // Create .gitignore file
+      const gitignoreContent = `node_modules/
+.env
+.DS_Store
+*.log
+`;
+      await fs.writeFile(path.join(projectPath, '.gitignore'), gitignoreContent);
+      
       spinner.succeed(chalk.green(`Project "${projectName}" created successfully!`));
+      
+      // Create GitHub repository if not skipped
+      if (options.github !== false && process.env.GITHUB_PAT) {
+        spinner.start('Creating GitHub repository...');
+        
+        try {
+          const username = await getGitHubUsername();
+          if (!username) {
+            spinner.warn(chalk.yellow('Could not retrieve GitHub username. Skipping repository creation.'));
+          } else {
+            const repoName = projectName.replace(/[^a-zA-Z0-9-_]/g, '-');
+            const repoDescription = `Presales project for ${customerName}`;
+            
+            const repo = await createGitHubRepo(repoName, repoDescription);
+            spinner.text = 'Initializing Git and pushing to GitHub...';
+            
+            await initializeGitRepo(projectPath, repo.clone_url);
+            
+            spinner.succeed(chalk.green('GitHub repository created and initialized!'));
+            console.log(chalk.cyan(`Repository URL: ${repo.html_url}`));
+          }
+        } catch (error) {
+          spinner.fail(chalk.red(`GitHub repository creation failed: ${error.message}`));
+          console.log(chalk.yellow('You can create the repository manually later.'));
+        }
+      } else if (options.github === false) {
+        console.log(chalk.gray('\nSkipped GitHub repository creation.'));
+      } else if (!process.env.GITHUB_PAT) {
+        console.log(chalk.yellow('\nNote: GITHUB_PAT environment variable not set. Skipping GitHub repository creation.'));
+        console.log(chalk.gray('To enable automatic repository creation, set your GitHub Personal Access Token:'));
+        console.log(chalk.gray('  export GITHUB_PAT=your_token_here'));
+      }
       
       console.log('\n' + chalk.cyan('Project structure created:'));
       console.log(chalk.gray(`  ${projectPath}/`));
