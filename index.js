@@ -188,7 +188,7 @@ async function getGitHubUsername() {
   }
 }
 
-// Initialize git repository and push to GitHub
+// Initialize git repository without pushing
 async function initializeGitRepo(projectPath, repoUrl) {
   const { exec } = require('child_process');
   const util = require('util');
@@ -196,23 +196,14 @@ async function initializeGitRepo(projectPath, repoUrl) {
   
   const commands = [
     'git init',
-    'git add .',
-    'git commit -m "Initial commit: Project structure created by Now-SC"',
     `git remote add origin ${repoUrl}`,
-    'git branch -M main',
-    'git push -u origin main'
+    'git branch -M main'
   ];
   
   for (const cmd of commands) {
     try {
       await execPromise(cmd, { cwd: projectPath });
     } catch (error) {
-      // If push fails, it might be due to authentication, but repo is still created
-      if (cmd.includes('push') && error.message.includes('Authentication failed')) {
-        console.log(chalk.yellow('\nNote: Repository created but push failed due to authentication.'));
-        console.log(chalk.yellow('You may need to set up Git credentials or push manually.'));
-        return;
-      }
       throw error;
     }
   }
@@ -366,12 +357,14 @@ OPENROUTER_API_KEY=your_api_key_here
             const repoDescription = `Presales project for ${customerName}`;
             
             const repo = await createGitHubRepo(repoName, repoDescription);
-            spinner.text = 'Initializing Git and pushing to GitHub...';
+            spinner.text = 'Initializing Git repository...';
             
             await initializeGitRepo(projectPath, repo.clone_url);
             
-            spinner.succeed(chalk.green('GitHub repository created and initialized!'));
+            spinner.succeed(chalk.green('GitHub repository created!'));
             console.log(chalk.cyan(`Repository URL: ${repo.html_url}`));
+            console.log(chalk.gray('Git initialized with remote origin set.'));
+            console.log(chalk.gray('To push your code: git add . && git commit -m "Initial commit" && git push -u origin main'));
           }
         } catch (error) {
           spinner.fail(chalk.red(`GitHub repository creation failed: ${error.message}`));

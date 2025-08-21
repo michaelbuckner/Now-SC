@@ -57,7 +57,7 @@ now-sc prompt
 - **Prompt Templates**: Automatically fetches and includes base prompts from GitHub
 - **LLM Integration**: Execute prompts using OpenRouter API with Gemini 2.5
 - **Output Management**: Save LLM responses to appropriate project folders
-- **GitHub Integration**: Automatically creates private GitHub repositories for each project
+- **GitHub Integration**: Automatically creates empty private GitHub repositories for each project
 
 ## Directory Structure
 
@@ -99,6 +99,12 @@ To create a GitHub PAT:
 1. Go to GitHub Settings > Developer settings > Personal access tokens
 2. Generate a new token with `repo` scope
 3. Copy and set as environment variable
+
+When a project is created with GitHub integration:
+- An empty private repository is created on GitHub
+- Git is initialized locally with the remote origin set
+- No files are committed or pushed automatically
+- You have full control over what and when to commit
 
 ### Using .env File
 You can also create a `.env` file in your project directory:
