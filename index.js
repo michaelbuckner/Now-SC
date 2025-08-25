@@ -30,6 +30,7 @@ const DIRECTORY_STRUCTURE = {
   '01_Customers': {},
   '10_PromptTemplates': {},
   '20_Demo_Library': {},
+  '30_CommunicationTemplates': {},
   '99_Assets': {
     'Project_Overview': {},
     'Communications': {},
@@ -85,6 +86,28 @@ async function savePrompts(projectPath, prompts) {
   for (const prompt of prompts) {
     const filePath = path.join(promptsPath, prompt.name);
     await fs.writeFile(filePath, prompt.content, 'utf8');
+  }
+}
+
+// Fetch and save communication templates
+async function fetchAndSaveCommunicationTemplates(projectPath) {
+  const templates = [
+    {
+      url: 'https://raw.githubusercontent.com/michaelbuckner/Now-SC-Base-Prompts/main/Templates/servicenow_poc_status_template.html',
+      fileName: 'servicenow_poc_status_template.html'
+    }
+  ];
+
+  const templatesPath = path.join(projectPath, '30_CommunicationTemplates');
+
+  for (const template of templates) {
+    try {
+      const response = await axios.get(template.url);
+      const filePath = path.join(templatesPath, template.fileName);
+      await fs.writeFile(filePath, response.data, 'utf8');
+    } catch (error) {
+      console.warn(chalk.yellow(`\nWarning: Failed to download template from ${template.url}. Skipping.`));
+    }
   }
 }
 
@@ -287,6 +310,9 @@ program
       // Fetch and save prompts
       const prompts = await fetchPrompts();
       await savePrompts(projectPath, prompts);
+
+      spinner.text = 'Fetching communication templates...';
+      await fetchAndSaveCommunicationTemplates(projectPath);
       
       // Create a README file
       const readmeContent = `# ${projectName}
