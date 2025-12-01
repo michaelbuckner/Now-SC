@@ -12,7 +12,7 @@ require('dotenv').config();
 const program = new Command();
 
 // GitHub API configuration
-const GITHUB_BASE_URL = 'https://api.github.com/repos/michaelbuckner/Now-SC-Base-Prompts/contents/Prompts';
+const GITHUB_BASE_URL = 'https://api.github.com/repos/Now-AI-Foundry/Now-SC-Base-Prompts/contents/Prompts';
 const GITHUB_API_URL = 'https://api.github.com';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'google/gemini-2.0-flash-exp:free';
@@ -93,7 +93,7 @@ async function savePrompts(projectPath, prompts) {
 async function fetchAndSaveCommunicationTemplates(projectPath) {
   const templates = [
     {
-      url: 'https://raw.githubusercontent.com/michaelbuckner/Now-SC-Base-Prompts/main/Templates/servicenow_poc_status_template.html',
+      url: 'https://raw.githubusercontent.com/Now-AI-Foundry/Now-SC-Base-Prompts/main/Templates/servicenow_poc_status_template.html',
       fileName: 'servicenow_poc_status_template.html'
     }
   ];
@@ -154,17 +154,20 @@ async function executePrompt(promptContent, userInput = '') {
   }
 }
 
-// Create GitHub repository
+// GitHub organization for new repositories
+const GITHUB_ORG = 'Now-AI-Foundry';
+
+// Create GitHub repository under the organization
 async function createGitHubRepo(repoName, description) {
   const token = process.env.GITHUB_PAT;
-  
+
   if (!token) {
     throw new Error('GITHUB_PAT environment variable is not set');
   }
-  
+
   try {
     const response = await axios.post(
-      `${GITHUB_API_URL}/user/repos`,
+      `${GITHUB_API_URL}/orgs/${GITHUB_ORG}/repos`,
       {
         name: repoName,
         description: description,
@@ -179,11 +182,11 @@ async function createGitHubRepo(repoName, description) {
         }
       }
     );
-    
+
     return response.data;
   } catch (error) {
     if (error.response && error.response.status === 422) {
-      throw new Error(`Repository "${repoName}" already exists on GitHub`);
+      throw new Error(`Repository "${repoName}" already exists in ${GITHUB_ORG} organization`);
     }
     throw new Error(`Failed to create GitHub repository: ${error.message}`);
   }
@@ -372,26 +375,21 @@ OPENROUTER_API_KEY=your_api_key_here
       
       // Create GitHub repository if not skipped
       if (options.github !== false && process.env.GITHUB_PAT) {
-        spinner.start('Creating GitHub repository...');
-        
+        spinner.start(`Creating GitHub repository in ${GITHUB_ORG} organization...`);
+
         try {
-          const username = await getGitHubUsername();
-          if (!username) {
-            spinner.warn(chalk.yellow('Could not retrieve GitHub username. Skipping repository creation.'));
-          } else {
-            const repoName = projectName.replace(/[^a-zA-Z0-9-_]/g, '-');
-            const repoDescription = `Presales project for ${customerName}`;
-            
-            const repo = await createGitHubRepo(repoName, repoDescription);
-            spinner.text = 'Initializing Git repository...';
-            
-            await initializeGitRepo(projectPath, repo.clone_url);
-            
-            spinner.succeed(chalk.green('GitHub repository created!'));
-            console.log(chalk.cyan(`Repository URL: ${repo.html_url}`));
-            console.log(chalk.gray('Git initialized with remote origin set.'));
-            console.log(chalk.gray('To push your code: git add . && git commit -m "Initial commit" && git push -u origin main'));
-          }
+          const repoName = projectName.replace(/[^a-zA-Z0-9-_]/g, '-');
+          const repoDescription = `Presales project for ${customerName}`;
+
+          const repo = await createGitHubRepo(repoName, repoDescription);
+          spinner.text = 'Initializing Git repository...';
+
+          await initializeGitRepo(projectPath, repo.clone_url);
+
+          spinner.succeed(chalk.green(`GitHub repository created in ${GITHUB_ORG}!`));
+          console.log(chalk.cyan(`Repository URL: ${repo.html_url}`));
+          console.log(chalk.gray('Git initialized with remote origin set.'));
+          console.log(chalk.gray('To push your code: git add . && git commit -m "Initial commit" && git push -u origin main'));
         } catch (error) {
           spinner.fail(chalk.red(`GitHub repository creation failed: ${error.message}`));
           console.log(chalk.yellow('You can create the repository manually later.'));
